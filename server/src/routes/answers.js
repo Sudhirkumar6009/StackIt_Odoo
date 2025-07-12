@@ -8,31 +8,12 @@ const router = express.Router();
 // Post answer to question
 /*
 Example Request:
-POST /api/questions/64f8a1b2c3d4e5f6g7h8i9j0/answers
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-Content-Type: application/json
-
-{
-  "content": "Async/await is syntactic sugar for promises. Here's how it works:\n\n```javascript\nasync function fetchData() {\n  try {\n    const response = await fetch('/api/data');\n    const data = await response.json();\n    return data;\n  } catch (error) {\n    console.error('Error:', error);\n  }\n}\n```"
-}
-
-Example Response:
-{
-  "_id": "64f8a1b2c3d4e5f6g7h8i9j2",
-  "content": "Async/await is syntactic sugar for promises...",
-  "userId": {
-    "_id": "64f8a1b2c3d4e5f6g7h8i9j3",
-    "username": "janedoe"
-  },
-  "questionId": "64f8a1b2c3d4e5f6g7h8i9j0",
-  "votes": [],
-  "voteCount": 0,
-  "createdAt": "2023-09-06T11:00:00.000Z"
-}
+POST /api/questions/64f8a1b2c3d4e5f6g7h8i9j0/answers?content=Async%2Fawait%20is%20syntactic%20sugar%20for%20promises...
+Authorization: Bearer <token>
 */
 router.post('/questions/:questionId/answers', auth, userAuth, async (req, res) => {
   try {
-    const { content } = req.query;
+    const { content } = req.body;
     const questionId = req.params.questionId;
 
     if (!content) {
@@ -87,12 +68,22 @@ Note:
 - If user already voted the same way, it removes the vote
 - If user voted differently, it switches the vote
 - User ID is automatically recorded with each vote
+
+Example Response:
+{
+  "message": "Vote recorded",
+  "voteCount": 4,
+  "userVote": 1,
+  "totalVotes": 3
+}
 */
-router.post('/:id/vote', auth, userAuth, async (req, res) => {
+router.post('/answers/:id/vote', auth, userAuth, async (req, res) => {
   try {
     const vote = Number(req.query.vote);
     const answerId = req.params.id;
-    const userId = req.user._id; // Use authenticated user ID
+    const userId = req.user._id;
+
+    console.log('Answer Vote Request:', { answerId, vote, userId: userId.toString() });
 
     if (![1, -1].includes(vote)) {
       return res.status(400).json({ message: 'Vote must be 1 or -1' });
@@ -113,13 +104,16 @@ router.post('/:id/vote', auth, userAuth, async (req, res) => {
       if (currentVote === vote) {
         // Same vote - remove it (toggle off)
         answer.votes.splice(existingVoteIndex, 1);
+        console.log('Vote removed (toggle off)');
       } else {
         // Different vote - switch from upvote to downvote or vice versa
         answer.votes[existingVoteIndex].vote = vote;
+        console.log('Vote switched:', currentVote, '->', vote);
       }
     } else {
       // First time voting - add new vote with user ID
       answer.votes.push({ userId, vote });
+      console.log('New vote added:', vote);
     }
 
     await answer.save();
@@ -127,16 +121,19 @@ router.post('/:id/vote', auth, userAuth, async (req, res) => {
     // Return updated vote count and user's current vote status
     const userCurrentVote = answer.votes.find(v => v.userId.toString() === userId.toString());
     
-    res.json({ 
-      message: 'Vote recorded', 
+    const response = {
+      message: 'Vote recorded',
       voteCount: answer.voteCount,
       userVote: userCurrentVote ? userCurrentVote.vote : null,
       totalVotes: answer.votes.length
-    });
+    };
+
+    console.log('Vote response:', response);
+    res.json(response);
   } catch (error) {
+    console.error('Answer vote error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
-
 
 module.exports = router;
