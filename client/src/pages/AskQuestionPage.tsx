@@ -1,14 +1,15 @@
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import RichTextEditor from "@/components/RichTextEditor";
+import TagSelector from "@/components/TagSelector";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/components/ui/use-toast";
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import RichTextEditor from '@/components/RichTextEditor';
-import TagSelector from '@/components/TagSelector';
-import { useAuth } from '@/hooks/useAuth';
-import { toast } from '@/components/ui/use-toast';
+const backend = import.meta.env.VITE_BACKEND;
 
 interface Tag {
   value: string;
@@ -17,22 +18,34 @@ interface Tag {
 
 const AskQuestionPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+  const { user, token } = useAuth(); // Now token will be available from context
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user) {
       toast({
         title: "Authentication required",
         description: "Please log in to ask a question.",
         variant: "destructive",
       });
-      navigate('/login');
+      navigate("/login");
+      return;
+    }
+
+    // No need for the localStorage fallback now, but we can keep it for safety
+    const authToken = token || localStorage.getItem("token");
+    if (!authToken) {
+      toast({
+        title: "Authentication required",
+        description: "Your session has expired. Please log in again.",
+        variant: "destructive",
+      });
+      navigate("/login");
       return;
     }
 
@@ -48,19 +61,52 @@ const AskQuestionPage = () => {
     setIsSubmitting(true);
 
     try {
-      // Mock API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      const response = await fetch(`${backend}/api/questions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: title,
+          description: content,
+          tags: tags.map((tag) => tag.value).join(","),
+        }),
+      });
+
+      console.log(
+        "Sending request with token:",
+        authToken.substring(0, 10) + "..."
+      );
+
+      if (response.status === 401) {
+        toast({
+          title: "Authentication failed",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
+        });
+        navigate("/login");
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to post question");
+      }
+
       toast({
         title: "Question posted!",
         description: "Your question has been successfully posted.",
       });
-      
-      navigate('/');
-    } catch (error) {
+
+      navigate("/");
+    } catch (error: any) {
+      console.error("Error posting question:", error);
       toast({
         title: "Error",
-        description: "Failed to post question. Please try again.",
+        description:
+          error.message || "Failed to post question. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -71,8 +117,10 @@ const AskQuestionPage = () => {
   if (!user) {
     return (
       <div className="max-w-2xl mx-auto text-center">
-        <h1 className="text-2xl font-bold mb-4">Please log in to ask a question</h1>
-        <Button onClick={() => navigate('/login')}>Log In</Button>
+        <h1 className="text-2xl font-bold mb-4">
+          Please log in to ask a question
+        </h1>
+        <Button onClick={() => navigate("/login")}>Log In</Button>
       </div>
     );
   }
@@ -123,9 +171,13 @@ const AskQuestionPage = () => {
 
             <div className="flex gap-4">
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Posting...' : 'Post Question'}
+                {isSubmitting ? "Posting..." : "Post Question"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => navigate('/')}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate("/")}
+              >
                 Cancel
               </Button>
             </div>
