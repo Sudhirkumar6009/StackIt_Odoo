@@ -2,7 +2,7 @@ const express = require('express');
 const Question = require('../models/Question');
 const Answer = require('../models/Answer');
 const User = require('../models/User');
-const { auth, userAuth } = require('../middleware/auth');
+const { auth, userAuth, adminAuth } = require('../middleware/auth');
 const router = express.Router();
 
 // Get all questions
@@ -240,12 +240,21 @@ Example Response:
 */
 router.post('/:id/accept/:answerId', auth, userAuth, async (req, res) => {
   try {
+    console.log('Accept answer request received');
+    console.log('Question ID:', req.params.id);
+    console.log('Answer ID:', req.params.answerId);
+    console.log('User ID from token:', req.user._id);
+
     const question = await Question.findById(req.params.id);
 
     if (!question) {
       return res.status(404).json({ message: 'Question not found' });
     }
 
+    console.log('Question author ID:', question.userId);
+    console.log('Comparison result:', question.userId.toString() === req.user._id.toString());
+
+    // Check if user is the question author
     if (question.userId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Only question author can accept answers' });
     }
@@ -255,22 +264,160 @@ router.post('/:id/accept/:answerId', auth, userAuth, async (req, res) => {
       return res.status(404).json({ message: 'Answer not found for this question' });
     }
 
+    // Check if answer is already accepted
+    if (question.acceptedAnswerId) {
+      return res.status(400).json({ message: 'This question already has an accepted answer' });
+    }
+
     question.acceptedAnswerId = req.params.answerId;
     await question.save();
 
+    console.log('Answer accepted successfully');
+
     // Add notification to answer author
-    await User.findByIdAndUpdate(answer.userId, {
-      $push: {
-        notifications: {
-          type: 'answer_accepted',
-          content: 'Your answer was accepted!',
-          link: `/questions/${question._id}`
+    if (answer.userId.toString() !== req.user._id.toString()) {
+      await User.findByIdAndUpdate(answer.userId, {
+        $push: {
+          notifications: {
+            type: 'answer_accepted',
+            content: `Your answer to "${question.title}" was accepted!`,
+            link: `/questions/${question._id}`,
+            read: false,
+            createdAt: new Date()
+          }
         }
-      }
-    });
+      });
+    }
 
     res.json({ message: 'Answer accepted successfully' });
   } catch (error) {
+    console.error('Error accepting answer:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Add answer to question (moved from answers.js for correct routing)
+router.post('/:id/answers', auth, userAuth, async (req, res) => {
+  try {
+    const { content } = req.body;
+    const questionId = req.params.id;
+
+    console.log('Received answer submission:', { content, questionId }); // Debug log
+
+    if (!content) {
+      return res.status(400).json({ message: 'Content is required' });
+    }
+
+    const question = await Question.findById(questionId);
+    if (!question) {
+      return res.status(404).json({ message: 'Question not found' });
+    }
+
+    const answer = new Answer({
+      content,
+      userId: req.user._id,
+      questionId
+    });
+
+    await answer.save();
+    await answer.populate('userId', 'username');
+
+    // Add answer to question
+    question.answers.push(answer._id);
+    await question.save();
+
+    // Add notification to question author
+    if (question.userId.toString() !== req.user._id.toString()) {
+      await User.findByIdAndUpdate(question.userId, {
+        $push: {
+          notifications: {
+            type: 'question_answered',
+            content: `Someone answered your question: "${question.title}"`,
+            link: `/questions/${questionId}`
+          }
+        }
+      });
+    }
+
+    res.status(201).json(answer);
+  } catch (error) {
+    console.error('Error creating answer:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin: Delete question
+/*
+Example Request:
+DELETE /api/questions/64f8a1b2c3d4e5f6g7h8i9j0/admin-delete
+Authorization: Bearer <admin-token>
+
+Example Response:
+{
+  "message": "Question deleted successfully"
+}
+*/
+router.delete('/:id/admin-delete', auth, adminAuth, async (req, res) => {
+  try {
+    const question = await Question.findById(req.params.id);
+    if (!question) {
+      return res.status(404).json({ message: 'Question not found' });
+    }
+
+    // Delete all answers for this question
+    await Answer.deleteMany({ questionId: req.params.id });
+
+    // Delete the question
+    await Question.findByIdAndDelete(req.params.id);
+
+    res.json({ message: 'Question and all its answers deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting question:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin: Delete specific answer
+/*
+Example Request:
+DELETE /api/questions/64f8a1b2c3d4e5f6g7h8i9j0/answers/64f8a1b2c3d4e5f6g7h8i9j2/admin-delete
+Authorization: Bearer <admin-token>
+
+Example Response:
+{
+  "message": "Answer deleted successfully"
+}
+*/
+router.delete('/:questionId/answers/:answerId/admin-delete', auth, adminAuth, async (req, res) => {
+  try {
+    const { questionId, answerId } = req.params;
+
+    const question = await Question.findById(questionId);
+    if (!question) {
+      return res.status(404).json({ message: 'Question not found' });
+    }
+
+    const answer = await Answer.findById(answerId);
+    if (!answer) {
+      return res.status(404).json({ message: 'Answer not found' });
+    }
+
+    // Remove answer from question's answers array
+    question.answers = question.answers.filter(id => id.toString() !== answerId);
+    
+    // If this was the accepted answer, remove the acceptance
+    if (question.acceptedAnswerId && question.acceptedAnswerId.toString() === answerId) {
+      question.acceptedAnswerId = null;
+    }
+    
+    await question.save();
+
+    // Delete the answer
+    await Answer.findByIdAndDelete(answerId);
+
+    res.json({ message: 'Answer deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting answer:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

@@ -7,6 +7,8 @@ import {
   Calendar,
   User,
   Loader2,
+  Trash2,
+  UserX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +47,7 @@ const HomePage = () => {
   const [sortBy, setSortBy] = useState<"newest" | "votes" | "activity">(
     "newest"
   );
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -87,6 +90,73 @@ const HomePage = () => {
         );
     }
   });
+
+  const handleDeleteQuestion = async (questionId: string, questionTitle: string) => {
+    if (!user || user.role !== 'admin') return;
+    
+    if (!confirm(`Are you sure you want to delete the question "${questionTitle}" and all its answers? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backend}/api/questions/${questionId}/admin-delete`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete question');
+      }
+
+      // Remove the question from local state
+      setQuestions(questions.filter(q => q._id !== questionId));
+
+      toast({
+        title: "Question deleted",
+        description: "The question and all its answers have been deleted.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete question",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBanUser = async (userId: string, username: string) => {
+    if (!user || user.role !== 'admin') return;
+    
+    if (!confirm(`Are you sure you want to ban user "${username}"? This will prevent them from logging in.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backend}/api/admin/ban-user/${userId}?banned=true`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to ban user');
+      }
+
+      toast({
+        title: "User banned",
+        description: `User "${username}" has been banned successfully.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to ban user",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -170,14 +240,36 @@ const HomePage = () => {
 
                 {/* Content */}
                 <div className="flex-1">
-                  <Link
-                    to={`/questions/${question._id}`}
-                    className="hover:text-primary"
-                  >
-                    <h3 className="text-lg font-semibold mb-2 hover:underline">
-                      {question.title}
-                    </h3>
-                  </Link>
+                  <div className="flex items-start justify-between mb-2">
+                    <Link
+                      to={`/questions/${question._id}`}
+                      className="hover:text-primary flex-1"
+                    >
+                      <h3 className="text-lg font-semibold hover:underline">
+                        {question.title}
+                      </h3>
+                    </Link>
+                    {user && user.role === 'admin' && (
+                      <div className="flex items-center space-x-2 ml-4">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteQuestion(question._id, question.title)}
+                          className="flex items-center space-x-1"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleBanUser(question.userId._id, question.userId.username)}
+                          className="flex items-center space-x-1 text-red-600 border-red-600 hover:bg-red-50"
+                        >
+                          <UserX className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
 
                   <p className="text-muted-foreground mb-3 line-clamp-2">
                     {question.description.replace(/<[^>]*>/g, "")}

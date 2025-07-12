@@ -1,81 +1,158 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+
+const backend = import.meta.env.VITE_BACKEND;
 
 interface Notification {
-  id: string;
-  message: string;
-  type: 'answer' | 'comment' | 'mention' | 'vote';
+  _id: string;
+  type: string;
+  content: string;
   read: boolean;
+  link: string;
   createdAt: string;
-  questionId?: string;
-  answerId?: string;
 }
 
 interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
-  addNotification: (notification: Omit<Notification, 'id' | 'read' | 'createdAt'>) => void;
-  markAsRead: (notificationId: string) => void;
-  markAllAsRead: () => void;
+  fetchNotifications: () => Promise<void>;
+  markAsRead: (notificationId: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  deleteNotification: (notificationId: string) => Promise<void>;
+  clearAllNotifications: () => Promise<void>;
+  createNotification: (userId: string, type: string, content: string, link: string) => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      message: 'Your question "How to use React hooks?" received a new answer',
-      type: 'answer',
-      read: false,
-      createdAt: new Date().toISOString(),
-      questionId: '1'
-    },
-    {
-      id: '2',
-      message: 'Someone mentioned you in a comment',
-      type: 'mention',
-      read: false,
-      createdAt: new Date(Date.now() - 3600000).toISOString()
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    
+    try {
+      const response = await fetch(`${backend}/api/notifications`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
     }
-  ]);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  const addNotification = (notificationData: Omit<Notification, 'id' | 'read' | 'createdAt'>) => {
-    const newNotification: Notification = {
-      ...notificationData,
-      id: Date.now().toString(),
-      read: false,
-      createdAt: new Date().toISOString()
-    };
-
-    setNotifications(prev => [newNotification, ...prev]);
   };
 
-  const markAsRead = (notificationId: string) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === notificationId
-          ? { ...notification, read: true }
-          : notification
-      )
-    );
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const response = await fetch(`${backend}/api/notifications/${notificationId}/read`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      
+      if (response.ok) {
+        await fetchNotifications();
+      }
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, read: true }))
-    );
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch(`${backend}/api/notifications/read-all`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      
+      if (response.ok) {
+        await fetchNotifications();
+      }
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
   };
+
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      const response = await fetch(`${backend}/api/notifications/${notificationId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      
+      if (response.ok) {
+        await fetchNotifications();
+      }
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    try {
+      const response = await fetch(`${backend}/api/notifications/clear-all`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      
+      if (response.ok) {
+        await fetchNotifications();
+      }
+    } catch (error) {
+      console.error('Failed to clear all notifications:', error);
+    }
+  };
+
+  const createNotification = async (userId: string, type: string, content: string, link: string) => {
+    try {
+      const response = await fetch(`${backend}/api/notifications/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ userId, type, content, link }),
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to create notification');
+      }
+    } catch (error) {
+      console.error('Failed to create notification:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user]);
 
   return (
     <NotificationContext.Provider value={{
       notifications,
       unreadCount,
-      addNotification,
+      fetchNotifications,
       markAsRead,
-      markAllAsRead
+      markAllAsRead,
+      deleteNotification,
+      clearAllNotifications,
+      createNotification
     }}>
       {children}
     </NotificationContext.Provider>

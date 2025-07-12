@@ -101,4 +101,32 @@ router.get('/users', auth, adminAuth, async (req, res) => {
   }
 });
 
+// Get user details for admin actions
+/*
+Example Request:
+GET /api/admin/user/64f8a1b2c3d4e5f6g7h8i9j1
+Authorization: Bearer <admin-token>
+
+Example Response:
+{
+  "_id": "64f8a1b2c3d4e5f6g7h8i9j1",
+  "username": "johndoe",
+  "email": "john@example.com",
+  "role": "user",
+  "banned": false,
+  "createdAt": "2023-09-05T10:30:00.000Z"
+}
+*/
+router.get('/user/:userId', auth, adminAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('-passwordHash');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;

@@ -231,4 +231,49 @@ router.delete('/clear-all', auth, userAuth, async (req, res) => {
   }
 });
 
-module.exports = router;
+// Create notification (for internal use by other routes)
+router.post('/create', auth, userAuth, async (req, res) => {
+  try {
+    const { userId, type, content, link } = req.body;
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.notifications.push({
+      type,
+      content,
+      link,
+      read: false,
+      createdAt: new Date()
+    });
+
+    await user.save();
+
+    res.json({ message: 'Notification created successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Helper function to create notifications (can be used by other routes)
+const createNotification = async (userId, type, content, link) => {
+  try {
+    const user = await User.findById(userId);
+    if (user) {
+      user.notifications.push({
+        type,
+        content,
+        link,
+        read: false,
+        createdAt: new Date()
+      });
+      await user.save();
+    }
+  } catch (error) {
+    console.error('Error creating notification:', error);
+  }
+};
+
+module.exports = { router, createNotification };

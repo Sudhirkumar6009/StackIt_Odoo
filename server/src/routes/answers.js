@@ -32,8 +32,10 @@ Example Response:
 */
 router.post('/questions/:questionId/answers', auth, userAuth, async (req, res) => {
   try {
-    const { content } = req.query;
+    const { content } = req.body; // Changed from req.query to req.body
     const questionId = req.params.questionId;
+
+    console.log('Received answer submission:', { content, questionId }); // Debug log
 
     if (!content) {
       return res.status(400).json({ message: 'Content is required' });
@@ -72,6 +74,7 @@ router.post('/questions/:questionId/answers', auth, userAuth, async (req, res) =
 
     res.status(201).json(answer);
   } catch (error) {
+    console.error('Error creating answer:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
