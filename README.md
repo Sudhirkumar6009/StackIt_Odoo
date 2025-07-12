@@ -1,0 +1,1 @@
+# StackIt_Odoo
