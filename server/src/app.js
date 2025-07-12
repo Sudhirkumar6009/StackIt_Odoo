@@ -25,12 +25,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-// Routes - Order matters!
+// Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/questions", questionRoutes);
+app.use("/api", answerRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/questions", questionRoutes); // This should handle /api/questions/:id/answers
-app.use("/api/answers", answerRoutes); // Keep this for answer-specific routes like voting
 
 // Health check
 app.get("/", (req, res) => {
