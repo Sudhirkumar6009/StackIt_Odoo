@@ -22,6 +22,8 @@ interface User {
   username: string;
 }
 
+// Make sure you're using this interface and not a different User interface from another file
+
 interface Answer {
   _id: string;
   content: string;
@@ -223,19 +225,14 @@ const QuestionDetailPage = () => {
     setIsSubmitting(true);
 
     try {
-      const params = new URLSearchParams({
-        content: newAnswer,
+      const response = await fetch(`${backend}/api/questions/${id}/answers`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ content: newAnswer }),
       });
-
-      const response = await fetch(
-        `${backend}/api/questions/${id}/answers?${params.toString()}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
 
       const data = await response.json();
 
@@ -394,7 +391,7 @@ const QuestionDetailPage = () => {
                       </div>
                     )}
                     {user &&
-                      question.userId._id &&
+                      question.userId._id == user.id &&
                       !question.acceptedAnswerId && (
                         <Button
                           variant="ghost"

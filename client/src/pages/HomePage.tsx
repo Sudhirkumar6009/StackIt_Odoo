@@ -166,12 +166,6 @@ const HomePage = () => {
                     </span>
                   </div>
                   <span>answers</span>
-
-                  <div className="flex items-center gap-1 mt-2">
-                    <Eye className="h-4 w-4" />
-                    <span className="font-medium">0</span>
-                  </div>
-                  <span>views</span>
                 </div>
 
                 {/* Content */}
