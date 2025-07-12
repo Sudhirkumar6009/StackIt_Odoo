@@ -41,7 +41,6 @@ app.get("/", (req, res) => {
       auth: "/api/auth",
       questions: "/api/questions", 
       answers: "/api/questions/:id/answers",
-      answerVote: "/api/answers/:id/vote",
       admin: "/api/admin",
       notifications: "/api/notifications"
     }
