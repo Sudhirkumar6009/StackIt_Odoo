@@ -30,7 +30,7 @@ Example Response:
 */
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password } = req.query;
+    const { username, email, password } = req.body;
     console.log(username, email, password);
 
     // Validation
@@ -80,13 +80,7 @@ router.post('/register', async (req, res) => {
 // Login
 /*
 Example Request:
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "email": "john@example.com",
-  "password": "password123"
-}
+GET /api/auth/login?email=john@example.com&password=password123
 
 Example Response:
 {
@@ -104,7 +98,7 @@ Example Response:
 router.get('/login', async (req, res) => {
   try {
     const { email, password } = req.query;
-
+    
     // Validation
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
@@ -146,3 +140,4 @@ router.get('/login', async (req, res) => {
 });
 
 module.exports = router;
+

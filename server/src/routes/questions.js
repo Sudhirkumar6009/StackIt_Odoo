@@ -118,25 +118,37 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create question
-/*
-Example Request:
-POST /api/questions?title=How%20to%20use%20async%2Fawait%20in%20JavaScript%3F&description=I'm%20having%20trouble%20understanding%20async%2Fawait%20syntax%20and%20how%20it%20differs%20from%20promises.%20Can%20someone%20explain%20with%20examples%3F&tags=javascript,async,promises
-Authorization: Bearer <token>
-*/
+// POST /api/questions
+// Example body:
+// {
+//   "title": "How to use async/await in JavaScript?",
+//   "description": "I'm having trouble understanding async/await syntax and how it differs from promises. Can someone explain with examples?",
+//   "tags": ["javascript", "async", "promises"]
+// }
+
 router.post('/', auth, userAuth, async (req, res) => {
   try {
-    const { title, description, tags } = req.query;
-    
+    const { title, description, tags } = req.body;
 
+    // Debug log (can remove later)
+    console.log("🟡 Incoming Question:", req.body);
+
+    // Validate required fields
     if (!title || !description) {
       return res.status(400).json({ message: 'Title and description are required' });
     }
 
+    // Handle tags: accept either an array or comma-separated string
+    const processedTags = Array.isArray(tags)
+      ? tags
+      : typeof tags === "string"
+        ? tags.split(',').map(tag => tag.trim())
+        : [];
+
     const question = new Question({
       title,
       description,
-      tags: tags ? tags.split(',') : [],
+      tags: processedTags,
       userId: req.user._id
     });
 
@@ -145,15 +157,23 @@ router.post('/', auth, userAuth, async (req, res) => {
 
     res.status(201).json(question);
   } catch (error) {
+    console.error("❌ Error creating question:", error.message);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
+
 
 // Vote on question
 /*
 Example Request:
 POST /api/questions/64f8a1b2c3d4e5f6g7h8i9j0/vote?vote=1
 Authorization: Bearer <token>
+
+Note: 
+- vote=1 for upvote, vote=-1 for downvote
+- If user already voted the same way, it removes the vote
+- If user voted differently, it switches the vote
+- User ID is automatically recorded with each vote
 */
 router.post('/:id/vote', auth, userAuth, async (req, res) => {
   try {
@@ -174,19 +194,32 @@ router.post('/:id/vote', auth, userAuth, async (req, res) => {
     const existingVoteIndex = question.votes.findIndex(v => v.userId.toString() === userId.toString());
 
     if (existingVoteIndex > -1) {
-      // Update existing vote or remove if same vote
-      if (question.votes[existingVoteIndex].vote === vote) {
+      // User has already voted
+      const currentVote = question.votes[existingVoteIndex].vote;
+
+      if (currentVote === vote) {
+        // Same vote - remove it (toggle off)
         question.votes.splice(existingVoteIndex, 1);
       } else {
+        // Different vote - switch from upvote to downvote or vice versa
         question.votes[existingVoteIndex].vote = vote;
       }
     } else {
-      // Add new vote
+      // First time voting - add new vote with user ID
       question.votes.push({ userId, vote });
     }
 
     await question.save();
-    res.json({ message: 'Vote recorded', voteCount: question.voteCount });
+
+    // Return updated vote count and user's current vote status
+    const userCurrentVote = question.votes.find(v => v.userId.toString() === userId.toString());
+
+    res.json({
+      message: 'Vote recorded',
+      voteCount: question.voteCount,
+      userVote: userCurrentVote ? userCurrentVote.vote : null,
+      totalVotes: question.votes.length
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -208,45 +241,7 @@ Example Response:
 router.post('/:id/accept/:answerId', auth, userAuth, async (req, res) => {
   try {
     const question = await Question.findById(req.params.id);
-    
-    if (!question) {
-      return res.status(404).json({ message: 'Question not found' });
-    }
 
-    if (question.userId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Only question author can accept answers' });
-    }
-
-    const answer = await Answer.findById(req.params.answerId);
-    if (!answer || answer.questionId.toString() !== question._id.toString()) {
-      return res.status(404).json({ message: 'Answer not found for this question' });
-    }
-
-    question.acceptedAnswerId = req.params.answerId;
-    await question.save();
-
-    // Add notification to answer author
-    await User.findByIdAndUpdate(answer.userId, {
-      $push: {
-        notifications: {
-          type: 'answer_accepted',
-          content: 'Your answer was accepted!',
-          link: `/questions/${question._id}`
-        }
-      }
-    });
-
-    res.json({ message: 'Answer accepted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-module.exports = router;
-router.post('/:id/accept/:answerId', auth, userAuth, async (req, res) => {
-  try {
-    const question = await Question.findById(req.params.id);
-    
     if (!question) {
       return res.status(404).json({ message: 'Question not found' });
     }

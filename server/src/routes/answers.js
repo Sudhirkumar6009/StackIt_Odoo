@@ -82,20 +82,17 @@ Example Request:
 POST /api/answers/64f8a1b2c3d4e5f6g7h8i9j2/vote?vote=1
 Authorization: Bearer <token>
 
-Note: vote can be 1 (upvote) or -1 (downvote)
-Sending the same vote again will remove the vote
-
-Example Response:
-{
-  "message": "Vote recorded",
-  "voteCount": 4
-}
+Note: 
+- vote=1 for upvote, vote=-1 for downvote
+- If user already voted the same way, it removes the vote
+- If user voted differently, it switches the vote
+- User ID is automatically recorded with each vote
 */
 router.post('/:id/vote', auth, userAuth, async (req, res) => {
   try {
     const vote = Number(req.query.vote);
     const answerId = req.params.id;
-    const userId = req.user._id;
+    const userId = req.user._id; // Use authenticated user ID
 
     if (![1, -1].includes(vote)) {
       return res.status(400).json({ message: 'Vote must be 1 or -1' });
@@ -110,17 +107,32 @@ router.post('/:id/vote', auth, userAuth, async (req, res) => {
     const existingVoteIndex = answer.votes.findIndex(v => v.userId.toString() === userId.toString());
 
     if (existingVoteIndex > -1) {
-      if (answer.votes[existingVoteIndex].vote === vote) {
+      // User has already voted
+      const currentVote = answer.votes[existingVoteIndex].vote;
+      
+      if (currentVote === vote) {
+        // Same vote - remove it (toggle off)
         answer.votes.splice(existingVoteIndex, 1);
       } else {
+        // Different vote - switch from upvote to downvote or vice versa
         answer.votes[existingVoteIndex].vote = vote;
       }
     } else {
+      // First time voting - add new vote with user ID
       answer.votes.push({ userId, vote });
     }
 
     await answer.save();
-    res.json({ message: 'Vote recorded', voteCount: answer.voteCount });
+    
+    // Return updated vote count and user's current vote status
+    const userCurrentVote = answer.votes.find(v => v.userId.toString() === userId.toString());
+    
+    res.json({ 
+      message: 'Vote recorded', 
+      voteCount: answer.voteCount,
+      userVote: userCurrentVote ? userCurrentVote.vote : null,
+      totalVotes: answer.votes.length
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
