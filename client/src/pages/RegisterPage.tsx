@@ -59,7 +59,7 @@ const RegisterPage = () => {
         title: "Welcome to StackIt!",
         description: "Your account has been created successfully.",
       });
-      navigate("/");
+      navigate("/login");
     } catch (error: any) {
       toast({
         title: "Registration failed",

@@ -45,7 +45,6 @@ const HomePage = () => {
   const [sortBy, setSortBy] = useState<"newest" | "votes" | "activity">(
     "newest"
   );
-  const { user } = useAuth();
 
   useEffect(() => {
     const fetchQuestions = async () => {
