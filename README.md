@@ -80,7 +80,7 @@ npm start
 |MONGNO_URL|mongodb+srv://XX:XX...mongodb.net.. *MongoDB URL*|
 |PORT|8000 *Backend port*|
 |CLIENT_URL| http://localhost:9000 *Client url*|
-|JWT_SECRET|XXX *secrect for JWT token*|
+|JWT_SECRET|XXXXX *secret key for JWT token*|
 
 ### Contact
 For questions or issues,
