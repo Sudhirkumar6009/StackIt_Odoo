@@ -48,8 +48,8 @@ Coming soon..
 ### 1. Clone the Repo.
 Follow command :
 ```bash
-git clone https://github.com/Sudhirkumar6009/StorageX.git
-cd ./StorageX
+git clone https://github.com/Sudhirkumar6009/StackIt_Odoo.git
+cd ./StackIt_Odoo
 ```
 ### 2. Install Dependencies
 Install dependencies on both frontend and backend : 
