@@ -52,40 +52,35 @@ git clone https://github.com/Sudhirkumar6009/StackIt_Odoo.git
 cd ./StackIt_Odoo
 ```
 ### 2. Install Dependencies
-Install dependencies on both frontend and backend : 
+Install dependencies on both `./client` and `./server` : 
 ```bash
 npm install
 ```
 ### 3. Run Locally Development
-3.1. For `./frontend` use this command : 
+3.1. For `./client` use this command : 
 ```bash
 npm run dev
 ```
-3.2. For `./backend` use this command : 
+3.2. For `./server` use this command : 
 ```bash
-nodemon
+npm start
 ```
 ### Now your Development is live on local port :8080
 
 **Important** Development uses some environment variables for both frontend and backend. User needs to add `.env` file on both directories and provide KEYS as follows : 
 
-### Frontend Environment Variables
+### client Environment Variables
 |NAME|INFORMATION|
 |----|-----------|
-|VITE_BACKEND_PORT_URL|http://localhost:3001 *Backend server*|
-|VITE_GOOGLE_CLIENT_ID|XXXX.apps.googleuserscontent.com *Used for GoogleOAuth*|
-|VITE_INFURA_ID| XXXX (32 char) *Web3 Wallet Connection*|
+|VITE_BACKEND|http://localhost:8000 *Backend server*|
 
-### Backend Environment Variables
+### server Environment Variables
 |NAME|INFORMATION|
 |----|-----------|
-|ATLAS_URI|mongodb+srv://XX:XX...mongodb.net.. *MongoDB Atlas*|
-|BACKEND_PORT_URL|http://localhost:3001 *Backend server*|
-|FILEBASE_ACCESS_KEY| XXXX *Used for Filebase access*|
-|FILEBASE_BUCKET| {bucket_name} *Used for Filebase access x2*|
-|FILEBASE_ENDPOINT| https://s3.filebase.com *Used for Filebase file access x3*|
-|FILEBASE_SECRET_KEY| XXXX *Used for Filebase access x4*|
-|SECRET_KEY| XXXX *Used for Encryption-Decryption of Profile Info*|
+|MONGNO_URL|mongodb+srv://XX:XX...mongodb.net.. *MongoDB URL*|
+|PORT|8000 *Backend port*|
+|CLIENT_URL| http://localhost:9000 *Client url*|
+|JWT_SECRET|XXX *secrect for JWT token*|
 
 ### Contact
 For questions or issues,
